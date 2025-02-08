@@ -14,11 +14,19 @@ var rootCmd = &cobra.Command{
 	Long:  `A simple container runtime implementation written in Go.`,
 }
 
+var detach bool
+
 var runCmd = &cobra.Command{
-	Use:   "run",
+	Use:   "run [command]",
 	Short: "Run a container",
+	Long: `Run a container with the specified command.
+Examples:
+  grocker run /bin/bash           # Run interactively
+  grocker run -d sleep 1000       # Run in background
+  grocker run --detach sleep 1000 # Run in background`,
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := container.Run(args); err != nil {
+		if err := container.Run(args, detach); err != nil {
 			fmt.Printf("Error running container: %v\n", err)
 			os.Exit(1)
 		}
@@ -48,6 +56,7 @@ var killCmd = &cobra.Command{
 }
 
 func init() {
+	runCmd.Flags().BoolVarP(&detach, "detach", "d", false, "Run container in background")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(stopCmd)
 	rootCmd.AddCommand(killCmd)
