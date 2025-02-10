@@ -5,7 +5,24 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"syscall"
 )
+
+type Container struct {
+	Namespaces NamespaceConfig
+}
+
+type NamespaceConfig struct {
+	PID bool
+}
+
+func NewContainer() *Container {
+	return &Container{
+		Namespaces: NamespaceConfig{
+			PID: true,
+		},
+	}
+}
 
 func init() {
 	// Configure structured JSON logger with timestamp and level
@@ -27,11 +44,22 @@ func Run(args []string, detach bool) error {
 	)
 
 	cmd := exec.Command(args[0], args[1:]...)
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWPID | syscall.CLONE_NEWUTS,
+	}
+
 	if !detach {
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Run()
+		pid := cmd.Process.Pid
+		slog.Info("started container process",
+			"command", args[0],
+			"args", args[1:],
+			"pid", pid,
+		)
 	} else {
 		cmd.Start()
 		pid := cmd.Process.Pid
