@@ -26,7 +26,17 @@ Examples:
   boxr run --detach sleep 1000 # Run in background`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := container.Run(args, detach); err != nil {
+		// Initialize a new container with default settings
+		c := container.NewContainer()
+
+		// Set the command and arguments
+		c.Args = args
+
+		// Set detach mode from flag
+		c.Detach = detach
+
+		// Run the container
+		if err := container.Run(*c); err != nil {
 			fmt.Printf("Error running container: %v\n", err)
 			os.Exit(1)
 		}
