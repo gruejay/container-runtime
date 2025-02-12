@@ -9,19 +9,62 @@ import (
 )
 
 type Container struct {
-	Namespaces NamespaceConfig
+	Namespaces NamespaceConfig `json:"namespaces"`
+	Detach     bool            `json:"detach"`
+	Args       []string
 }
 
 type NamespaceConfig struct {
-	PID bool
+	PID     bool `json:"pid"`     // Process ID namespace
+	Network bool `json:"network"` // Network namespace
+	Mount   bool `json:"mount"`   // Mount namespace
+	UTS     bool `json:"uts"`     // Unix Timesharing System namespace
+	IPC     bool `json:"ipc"`     // Inter-Process Communication namespace
+	User    bool `json:"user"`    // User namespace
+	Cgroup  bool `json:"cgroup"`  // Control Group namespace
 }
 
 func NewContainer() *Container {
 	return &Container{
 		Namespaces: NamespaceConfig{
-			PID: true,
+			PID:     true,
+			Network: false,
+			Mount:   false,
+			UTS:     true,
+			IPC:     false,
+			User:    false, // Disabled by default as it requires additional user mapping setup
+			Cgroup:  false,
 		},
 	}
+}
+
+// Helper method to get clone flags based on namespace configuration
+func (c *Container) getNamespaceFlags() uintptr {
+	var flags uintptr
+
+	if c.Namespaces.PID {
+		flags |= syscall.CLONE_NEWPID
+	}
+	if c.Namespaces.Network {
+		flags |= syscall.CLONE_NEWNET
+	}
+	if c.Namespaces.Mount {
+		flags |= syscall.CLONE_NEWNS
+	}
+	if c.Namespaces.UTS {
+		flags |= syscall.CLONE_NEWUTS
+	}
+	if c.Namespaces.IPC {
+		flags |= syscall.CLONE_NEWIPC
+	}
+	if c.Namespaces.User {
+		flags |= syscall.CLONE_NEWUSER
+	}
+	if c.Namespaces.Cgroup {
+		flags |= syscall.CLONE_NEWCGROUP
+	}
+
+	return flags
 }
 
 func init() {
@@ -32,40 +75,36 @@ func init() {
 	slog.SetDefault(logger)
 }
 
-func Run(args []string, detach bool) error {
-	if len(args) < 1 {
-		slog.Error("no command specified")
-		return fmt.Errorf("no command specified")
-	}
+func Run(c Container) error {
 
 	slog.Info("starting container process",
-		"command", args[0],
-		"args", args[1:],
+		"command", c.Args[0],
+		"args", c.Args[1:],
 	)
-
-	cmd := exec.Command(args[0], args[1:]...)
+	fmt.Println(c.getNamespaceFlags())
+	cmd := exec.Command(c.Args[0], c.Args[1:]...)
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWPID | syscall.CLONE_NEWUTS,
+		Cloneflags: c.getNamespaceFlags(),
 	}
 
-	if !detach {
+	if !c.Detach {
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		cmd.Run()
-		pid := cmd.Process.Pid
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("command failed with %v", err)
+		}
 		slog.Info("started container process",
-			"command", args[0],
-			"args", args[1:],
-			"pid", pid,
+			"command", c.Args[0],
+			"args", c.Args[1:],
 		)
 	} else {
 		cmd.Start()
 		pid := cmd.Process.Pid
 		slog.Info("started detached container process",
-			"command", args[0],
-			"args", args[1:],
+			"command", c.Args[0],
+			"args", c.Args[1:],
 			"pid", pid,
 		)
 	}
