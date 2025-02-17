@@ -244,16 +244,113 @@ PID printed by `go run`.
 
 
 
-## Turning it into a real command
+
+## Adding some Structure
 
 
-Until now, we've used `go run` to easily execute the code. But to make this a "real" CLI tool, let's compile it into an executable.
+Running a container will require knowing a lot of information:
+- Namespace config (which namespaces to create, which to attach to)
+- FS information (which directory is the root directory?)
+- Mount information (which devices/filesystems to mount into the container, and where)
+- Command information (which command to run, with what args)
+- whether to attach `stdin`_`stdout`_`stderr`
+- And more
+
+It would be hard and messy to track all of that separately by passing arguments one-by-one. Each change we make
+to the container (adding a feature, flag, argument) would require updating the function signatures for everything.
+We can make our lives a lot easier by creating a `Container` type that will hold all of the configuration we care about.
+
+Adding the following to `pkg/container/container.go` gives us a container type that has two fields: `Detach`, to tell us 
+whether to attach to the running process, and `Args` to hold the info the user passed in about what to execute. Now, instead
+of `container.Run()` being a standalone function, it will be a Method on the `Container` type. We will need to rewrite the logic
+of the function to use the new container type, and rewrite `cmd/main.go` to use it, as well.
+
+In addition to adding the type declaration, let's add a function `NewContainer()` that returns a pointer
+to an instance of `Container` with some defaults. Those can, of course, be overridden, but it will be nice in the near
+future when we start adding namespace configuration, but don't yet have config files.
+
+
+```go
+type Container struct {
+	Detach     bool            `json:"detach"`
+	Args       []string
+}
+
+func NewContainer() *Container {
+  return &Container{
+    Detach: false
+  }
+}
+
+func (*Container) Run() {
+	cmd := exec.Command(c.Args[0], c.Args[1:]...)
+
+	if !c.Detach {
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("command failed with %v", err)
+		}
+		slog.Info("started container process",
+			"command", c.Args[0],
+			"args", c.Args[1:],
+		)
+	} else {
+		cmd.Start()
+		pid := cmd.Process.Pid
+		slog.Info("started detached container process",
+			"command", c.Args[0],
+			"args", c.Args[1:],
+			"pid", pid,
+		)
+	}
+	return nil
+
+}
+```
+
+`cmd/main.go` (snippet)
+```go
+var runCmd = &cobra.Command{
+	Use:   "run [command]",
+	Short: "Run a container",
+	Long: `Run a container with the specified command.
+Examples:
+  boxr run /bin/bash           # Run interactively
+  boxr run -d sleep 1000       # Run in background
+  boxr run --detach sleep 1000 # Run in background`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		// Initialize a new container with default settings
+		c := container.NewContainer()
+
+		// Set the command and arguments
+		c.Args = args
+
+		// Set detach mode from flag
+		c.Detach = detach
+
+		// Run the container
+		if err := c.Run(); err != nil {
+			fmt.Printf("Error running container: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+```
+
+Now, when `boxr run` is called, first a new instance of `Container` is created, and the user's desired command
+and detach behavior are set in the Container's fields. Then the `Run` method is called, which behaves pretty
+much the same as before, except gets the necessary info from the `Container` instance its called on, instead
+of via arguments. If we wanted to add, say, namespace changes, we could add that to the `Container` type and not
+have to change the method signature. Let's do that in part 3!
+
+
+# Appendix: Turning `boxr` into a real command
+
+
+If you've used Go before, you know how to compile into an executable. But in case you don't:
 
 `go build -o boxr cmd/main.go && chmod +x ./boxr` will give you a binary executable, `./boxr`, that you can now use. `./boxr run -- ls` or
-`./boxr run -d -- sleep 100`.
-
-Play around with `boxr`/`go run` and see how the processes are spawned eitehr with or without the detached flag. `ps axjf` is a nice command for this,
-as it will print a process tree so you can easily see which processes are children of others. Also explore the `/proc` filesystem to look at the spawned
-processes. That will become more important later.
-
-
+`./boxr run -d -- sleep 100`
