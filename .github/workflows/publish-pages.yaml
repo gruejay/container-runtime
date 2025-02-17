@@ -1,0 +1,16 @@
+name: Publish MkDocs to pages branch
+
+on:
+  push:
+    - 'main'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    name: publish mkdocs
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: build mkdocs
+        run: mkdocs gh-deploy
