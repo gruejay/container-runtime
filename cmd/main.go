@@ -10,7 +10,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "boxr",
-	Short: "Grocker is a simple container runtime",
+	Short: "Boxr is a simple container runtime",
 	Long:  `A simple container runtime implementation written in Go.`,
 }
 
