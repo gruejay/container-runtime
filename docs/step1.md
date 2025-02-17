@@ -5,7 +5,12 @@
 # Part 1: Executing processes from Go
 
 
-The first step is to make a basic CLI for launching other commands through Go.
+At its core, a container runtime is a way to use one process (the container manager) to launch
+another process. That's a massive oversimplification, but launching processes is as good a place
+to start as any for building `boxr`. 
+
+Let's make a basic CLI for launching other commands through Go. There won't be any flash to it,
+simply using `os/exec` package to take the user's input and pass it to the OS as a new command to run.
 Using the Cobra CLI package, lets make a a command, `boxr`, and a subcommand, `run`,
 that takes in the remaining CLI args and treats them as a command and arguments to run.
 
@@ -63,8 +68,12 @@ Now execute `go run step1.go run -- ls` and you should see the contents of your 
 isolation yet, no process isolation, nothing like that. The `ls` that you are executing is the same `ls` binary that you could run directly,
 and it has the same privileges on your machine as you do.
 
+Play around with the command a bit-- even try launching a shell (zsh/bash/fish, whatever you like). Long running processes should give you enough
+time to poke around at the process list while the command is still being executed to see what is happening. Tools like `pgrep` and `ps` can
+be used to find the PIDs of the processes, and you can find out more by looking at `/proc/<pid>`
 
-# Structuring the Project
+
+## Structuring the Project
 
 
 To make our lives a little easier as the project expands, let's rename this file `cmd/main.go` and move the logic inside the `Run` field of `runCmd` struct into its own file inside `pkg/container/main.go`
@@ -141,7 +150,7 @@ logic even further, but the `container` package will be the "entrypoint" into ru
 without needing to make drastic changes to the `cmd/` directory.
 
 
-# Adding flags
+## Adding flags
 
 
 To understand a bit more about Cobra CLI, and to add an important feature of containers, let's allow the caller to spawn
@@ -235,7 +244,7 @@ PID printed by `go run`.
 
 
 
-# Turning it into a real command
+## Turning it into a real command
 
 
 Until now, we've used `go run` to easily execute the code. But to make this a "real" CLI tool, let's compile it into an executable.
