@@ -10,7 +10,10 @@ The end goal is to have a daemonless CLI, `boxr`, that allows me to do things li
 although pulling images from dockerhub/other sources may be in scope if I feel like it.
 
 The project will likely evolve as it progresses, with early components feeding into later ones.
-Early on it will be more similar to a simplified `runc`, with features exapnding from there
+Early on it will be more similar to a simplified `runc`, with features exapnding from there.
+
+The files named `step<int>` in this directory are a more-or-less step-by-step accounting of what I'm doing,
+with enough code blocks that you should be able to follow along and try things out as you go.
 
 ## Specifying the interface
 
