@@ -3,15 +3,21 @@ site_description: A simple container runtime implementation
 theme:
   name: terminal
   palette: dark
+  features:
+    - navigation.side.indexes
 
 nav:
   - Home: index.md
-  - 'Step 1: Getting Started': step1.md
-  - 'Step 2: Process Isolation': step2.md
+  - Steps:
+    - Index: steps/index.md
+    - 'Step 1: Getting Started': steps/step1.md
+    - 'Step 2: Namespaces (Part 1)': steps/step2.md
 
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
+      use_pygments: true
+      noclasses: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences

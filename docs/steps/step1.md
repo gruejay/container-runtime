@@ -1,5 +1,6 @@
-# Part 1: Executing processes from Go
+# Part 1: Getting Started
 
+## Executing Processes from Go
 
 At its core, a container runtime is a way to use one process (the container manager) to launch
 another process. That's a massive oversimplification, but launching processes is as good a place
@@ -238,11 +239,7 @@ func run(args []string, detach bool) error {
 Now try running `go run cmd/main.go run -d -- sleep 100`, then afterwards `pgrep sleep` and you should get a PID matching the 
 PID printed by `go run`. 
 
-
-
-
 ## Adding some Structure
-
 
 Running a container will require knowing a lot of information:
 - Namespace config (which namespaces to create, which to attach to)
@@ -343,7 +340,7 @@ of via arguments. If we wanted to add, say, namespace changes, we could add that
 have to change the method signature. Let's do that in part 3!
 
 
-# Appendix: Turning `boxr` into a real command
+## Appendix: Turning `boxr` into a real command
 
 
 If you've used Go before, you know how to compile into an executable. But in case you don't:

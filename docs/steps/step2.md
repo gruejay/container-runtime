@@ -1,4 +1,4 @@
-# Step 2: Namespaces
+# Step 2: Namespaces (Part 1)
 
 
 Namespaces are a major piece of the container puzzle. I won't go into detail here on 
