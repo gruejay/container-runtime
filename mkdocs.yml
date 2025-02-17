@@ -1,0 +1,22 @@
+site_name: boxr container runner
+site_description: A simple container runtime implementation
+theme:
+  name: terminal
+  palette: dark
+
+nav:
+  - Home: index.md
+  - 'Step 1: Getting Started': step1.md
+  - 'Step 2: Process Isolation': step2.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+
+repo_url: https://github.com/gruejay/container-runtime
+

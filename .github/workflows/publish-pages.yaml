@@ -1,0 +1,26 @@
+name: Publish MkDocs to pages branch
+permissions: write-all
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    name: publish mkdocs
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mkdocs reqs
+        run: pip install -r requirements.txt
+
+      - name: build mkdocs
+        run: mkdocs gh-deploy
