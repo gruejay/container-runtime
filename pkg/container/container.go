@@ -75,7 +75,7 @@ func init() {
 	slog.SetDefault(logger)
 }
 
-func Run(c Container) error {
+func (c *Container) Run() error {
 
 	slog.Info("starting container process",
 		"command", c.Args[0],

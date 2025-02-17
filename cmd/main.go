@@ -36,7 +36,7 @@ Examples:
 		c.Detach = detach
 
 		// Run the container
-		if err := container.Run(*c); err != nil {
+		if err := c.Run(); err != nil {
 			fmt.Printf("Error running container: %v\n", err)
 			os.Exit(1)
 		}
