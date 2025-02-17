@@ -1,0 +1,250 @@
+
+
+
+
+# Part 1: Executing processes from Go
+
+
+The first step is to make a basic CLI for launching other commands through Go.
+Using the Cobra CLI package, lets make a a command, `boxr`, and a subcommand, `run`,
+that takes in the remaining CLI args and treats them as a command and arguments to run.
+
+``` go
+package main
+
+import (
+  "os"
+  "os/exec"
+  "fmt"
+	"github.com/spf13/cobra"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "boxr",
+	Short: "Boxr is a simple container runtime",
+	Long:  `A simple container runtime implementation written in Go.`,
+}
+
+
+var runCmd = &cobra.Command{
+	Use:   "run [command]",
+	Short: "Run a container",
+	Long: `Run a container with the specified command.
+Examples:
+  boxr run /bin/bash           # Run interactively
+  boxr run -d sleep 1000       # Run in background
+  boxr run --detach sleep 1000 # Run in background`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+     
+    command := exec.Command(args[0], args[1:]...)
+    command.Stdin = os.Stdin
+    command.Stdout = os.Stdout
+    command.Stderr = os.Stderr
+    command.Run()
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(runCmd)
+}
+
+func main() {
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+```
+
+
+Now execute `go run step1.go run -- ls` and you should see the contents of your directory printed out. There's no file system
+isolation yet, no process isolation, nothing like that. The `ls` that you are executing is the same `ls` binary that you could run directly,
+and it has the same privileges on your machine as you do.
+
+
+# Structuring the Project
+
+
+To make our lives a little easier as the project expands, let's rename this file `cmd/main.go` and move the logic inside the `Run` field of `runCmd` struct into its own file inside `pkg/container/main.go`
+and import it into the `cmd/main.go` file.
+
+```go
+package container
+
+import (
+  "os/exec"
+  "fmt"
+)
+
+func run(args []string) {
+
+    command := exec.Command(args[0], args[1:]...)
+    command.Stdin = os.Stdin
+    command.Stdout = os.Stdout
+    command.Stderr = os.Stderr
+    command.Run()
+}
+```
+
+
+```go
+package main
+
+import (
+  "os"
+  "os/exec"
+  "fmt"
+  "github.com/spf13/cobra"
+  "github.com/gruejay3/container-runtime/pkg/container"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "boxr",
+	Short: "Boxr is a simple container runtime",
+	Long:  `A simple container runtime implementation written in Go.`,
+}
+
+
+var runCmd = &cobra.Command{
+	Use:   "run [command]",
+	Short: "Run a container",
+	Long: `Run a container with the specified command.
+Examples:
+  boxr run /bin/bash           # Run interactively
+  boxr run -d sleep 1000       # Run in background
+  boxr run --detach sleep 1000 # Run in background`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+    container.Run(args)
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(runCmd)
+}
+
+func main() {
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+```
+
+
+This gives us a good platform to add functionality to the `run` command. Namespaces, chroot, and cgroups can be applied
+to the execution of the command, and that logic can be kept separate from the CLI logic. In the future, we will split out the 
+logic even further, but the `container` package will be the "entrypoint" into running a container, meaning we can modify a lot "under the hood"
+without needing to make drastic changes to the `cmd/` directory.
+
+
+# Adding flags
+
+
+To understand a bit more about Cobra CLI, and to add an important feature of containers, let's allow the caller to spawn
+the process in "detached" mode, meaning the `boxr` command will return but the spawned process may still be running.
+
+We can do this using a new variable `detached` that will be true if the user passes the `-d/--detached` flag.
+
+`cmd/main.go`
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/gruejay/container-runtime/pkg/container"
+	"github.com/spf13/cobra"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "boxr",
+	Short: "Boxr is a simple container runtime",
+	Long:  `A simple container runtime implementation written in Go.`,
+}
+
+var detach bool
+
+var runCmd = &cobra.Command{
+	Use:   "run [command]",
+	Short: "Run a container",
+	Long: `Run a container with the specified command.
+Examples:
+  boxr run /bin/bash           # Run interactively
+  boxr run -d sleep 1000       # Run in background
+  boxr run --detach sleep 1000 # Run in background`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		// Initialize a new container with default settings
+		if err := container.Run(args, detach); err != nil {
+			fmt.Printf("Error running container: %v\n", err)
+			os.Exit(1)
+		}
+	},
+}
+
+func init() {
+	runCmd.Flags().BoolVarP(&detach, "detach", "d", false, "Run container in background")
+	rootCmd.AddCommand(runCmd)
+}
+
+func main() {
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+```
+
+`pkg/container/container.go`
+```go
+package container
+
+import (
+  "os/exec"
+  "fmt"
+)
+
+func run(args []string, detach bool) error {
+
+  command := exec.Command(args[0], args[1:]...)
+  if !detach {
+    command.Stdin = os.Stdin
+    command.Stdout = os.Stdout
+    command.Stderr = os.Stderr
+    if err := cmd.Run(); err != nil {
+      return fmt.Errorf("command failed with %v", err)
+    }
+  } else {
+    command.Start()
+    pid := cmd.Process.Pid
+    fmt.Printf("Spawned process: %d", pid)
+    return nil
+  }
+  return nil
+}
+```
+
+Now try running `go run cmd/main.go run -d -- sleep 100`, then afterwards `pgrep sleep` and you should get a PID matching the 
+PID printed by `go run`. 
+
+
+
+# Turning it into a real command
+
+
+Until now, we've used `go run` to easily execute the code. But to make this a "real" CLI tool, let's compile it into an executable.
+
+`go build -o boxr cmd/main.go && chmod +x ./boxr` will give you a binary executable, `./boxr`, that you can now use. `./boxr run -- ls` or
+`./boxr run -d -- sleep 100`.
+
+Play around with `boxr`/`go run` and see how the processes are spawned eitehr with or without the detached flag. `ps axjf` is a nice command for this,
+as it will print a process tree so you can easily see which processes are children of others. Also explore the `/proc` filesystem to look at the spawned
+processes. That will become more important later.
+
+
