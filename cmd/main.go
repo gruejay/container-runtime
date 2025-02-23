@@ -15,6 +15,7 @@ var rootCmd = &cobra.Command{
 }
 
 var detach bool
+var root string
 
 var runCmd = &cobra.Command{
 	Use:   "run [command]",
@@ -30,8 +31,9 @@ Examples:
 		c := container.NewContainer()
 
 		// Set the command and arguments
-		c.Args = args
-
+		c.Command = args[0]
+		c.Args = args[1:]
+		c.Root = root
 		// Set detach mode from flag
 		c.Detach = detach
 
@@ -67,6 +69,8 @@ var killCmd = &cobra.Command{
 
 func init() {
 	runCmd.Flags().BoolVarP(&detach, "detach", "d", false, "Run container in background")
+	runCmd.Flags().StringVarP(&root, "root", "r", "rootfs", "Root directory of container")
+	runCmd.MarkFlagRequired("root")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(stopCmd)
 	rootCmd.AddCommand(killCmd)

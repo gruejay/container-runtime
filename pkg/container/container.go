@@ -11,7 +11,9 @@ import (
 type Container struct {
 	Namespaces NamespaceConfig `json:"namespaces"`
 	Detach     bool            `json:"detach"`
-	Args       []string
+	Command    string          `json:"command"`
+	Args       []string        `json:"args"`
+	Root       string          `json:"root"`
 }
 
 type NamespaceConfig struct {
@@ -78,15 +80,18 @@ func init() {
 func (c *Container) Run() error {
 
 	slog.Info("starting container process",
-		"command", c.Args[0],
-		"args", c.Args[1:],
+		"command", c.Command,
+		"args", c.Args,
 	)
 	fmt.Println(c.getNamespaceFlags())
-	cmd := exec.Command(c.Args[0], c.Args[1:]...)
+	cmd := exec.Command(c.Command, c.Args...)
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: c.getNamespaceFlags(),
 	}
+
+	syscall.Chroot(c.Root)
+	os.Chdir("/")
 
 	if !c.Detach {
 		cmd.Stdin = os.Stdin
@@ -96,15 +101,15 @@ func (c *Container) Run() error {
 			return fmt.Errorf("command failed with %v", err)
 		}
 		slog.Info("started container process",
-			"command", c.Args[0],
-			"args", c.Args[1:],
+			"command", c.Command,
+			"args", c.Args,
 		)
 	} else {
 		cmd.Start()
 		pid := cmd.Process.Pid
 		slog.Info("started detached container process",
-			"command", c.Args[0],
-			"args", c.Args[1:],
+			"command", c.Command,
+			"args", c.Args,
 			"pid", pid,
 		)
 	}
