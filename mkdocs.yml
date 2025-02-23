@@ -1,4 +1,5 @@
 site_name: boxr container runner
+site_url: https://gruejay.github.io/container-runtime
 site_description: A simple container runtime implementation
 theme:
   name: terminal
@@ -26,4 +27,3 @@ markdown_extensions:
   - pymdownx.details
 
 repo_url: https://github.com/gruejay/container-runtime
-
