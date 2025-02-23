@@ -12,6 +12,7 @@ nav:
     - Index: steps/index.md
     - 'Step 1: Getting Started': steps/step1.md
     - 'Step 2: Namespaces (Part 1)': steps/step2.md
+    - 'Step 3: Filesystem (Part 1)': steps/step3.md
 
 markdown_extensions:
   - pymdownx.highlight:
