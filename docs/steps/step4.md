@@ -120,7 +120,11 @@ in one namespace is now running in another. Weaveworks, a cloud-native gitops co
 a [great blog](https://web.archive.org/web/20240121103505/https://www.weave.works/blog/linux-namespaces-and-go-don-t-mix)
 in 2017 that reveals the problem. Even though that's now been fixed, and locked threads can't spawn new clones,
 we don't want to be forced to limit our entire program to a single thread, and if we need to enter existing namespaces
-with `setns(2)`, we need multiple calls, which could (if we are unlucky) end up on separate threads. 
+with `setns(2)`, we need multiple calls, which could (if we are unlucky) end up on separate threads.
+
+There is another [interesting discussion](https://groups.google.com/g/golang-dev/c/6G4rq0DCKfo) in the Go-dev google group
+(again, pre-1.10 release) on the problems with `setns(2)` in Go. It touches on some of the issues with multithreading and
+syscalls, especially namespaces and fork/exec, some of which we don't avoid even after Go 1.10.
 
 ### The solutions
 
