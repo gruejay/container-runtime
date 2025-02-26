@@ -133,7 +133,24 @@ Let's test using our `stage3-chroot` directory:
 lib  lib64  usr
 ```
 
-Success! There's plenty more to say about filesystems. In Step 4: Filesystems Part 2 we will
+Success! As a last step, let's learn how to easily get a copy of an entire bsybox distribution with
+all of the binaries and files present that we need to have a usable shell inside our "container".
+I've included a copy in `rootfs`, but the process is very simple if you already have docker:
+(copied from the [runc README.md](https://github.com/opencontainers/runc?tab=readme-ov-file#creating-an-oci-bundle))
+
+```bash
+# create the top most bundle directory
+mkdir mycontainer
+cd mycontainer
+
+# create the rootfs directory
+mkdir rootfs
+
+# export busybox via Docker into the rootfs directory
+docker export $(docker create busybox) | tar -C rootfs -xvf -
+```
+
+There's plenty more to say about filesystems. In Step 4: Filesystems Part 2 we will
 learn about mounts and masks to solve the `/proc` issue that sent us down this path.
 
 ## `chroot` is dangereous, take this \[*hands you `pivot_root`*\]
