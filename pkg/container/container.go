@@ -31,7 +31,7 @@ func NewContainer() *Container {
 		Namespaces: NamespaceConfig{
 			PID:     true,
 			Network: false,
-			Mount:   false,
+			Mount:   true,
 			UTS:     true,
 			IPC:     false,
 			User:    false, // Disabled by default as it requires additional user mapping setup
