@@ -41,7 +41,7 @@ func NewContainer() *Container {
 }
 
 // Helper method to get clone flags based on namespace configuration
-func (c *Container) getNamespaceFlags() uintptr {
+func (c *Container) GetNamespaceFlags() uintptr {
 	var flags uintptr
 
 	if c.Namespaces.PID {
@@ -83,13 +83,9 @@ func (c *Container) Run() error {
 		"command", c.Command,
 		"args", c.Args,
 	)
-	fmt.Println(c.getNamespaceFlags())
 	cmd := exec.Command(c.Command, c.Args...)
-
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: c.getNamespaceFlags(),
-	}
-
+	flags := uintptr(syscall.MS_PRIVATE | syscall.MS_REC)
+	syscall.Mount("none", "/", "", flags, "")
 	syscall.Chroot(c.Root)
 	os.Chdir("/")
 
