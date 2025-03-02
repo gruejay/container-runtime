@@ -6,7 +6,7 @@ theme:
   palette: dark
   features:
     - navigation.side.indexes
-
+    - footer.prev_next
 nav:
   - Home: index.md
   - Steps:
