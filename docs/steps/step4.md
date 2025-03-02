@@ -141,3 +141,86 @@ it needs to do within other namespaces (it offloads container management itself 
 interact with containers.
 
 CGo is fairly complicated to do well, especially given that I lack thorough C experience. So we will use reexec. Time for a rewrite...
+
+
+## Rewriting for Re-exec
+
+The idea behind re-exec is that on the first run of the program (by the user or some higher level of abstraction), a special flag
+or env var is not set. This tells the program to enter the re-exec path. The re-exec path does some stuff then calls itself again
+with the same args that the user passed, except this time it adds the special falg/env var to tell the program to skip re-exec.
+
+In the re-exec code, we will read the namespace config and create the new namespaces using clone flags, very similarly to how we used
+to, but this time the command to run in the new process is `boxr` itself, not the user's command. What we end up with is a copy of
+`boxr` running in its own namespaces with the same parameters/config as the user originally called. This avoids all of the Go threading
+issues, since we no longer have to `unshare` or create new namespaces after we've been re-executed, we just continue on with setting
+up mounts, networks, and launching the user's command. I won't replicate the code for rexec in the notes, but I'll highlight a few key
+parts (you can browse tag `step4-rewrite` to see a snapshot of the code post-rewrite).
+
+We use the env var `_CONTAINER_INIT` to indicate whether we are on the first or second run of the program. SO the function executed by 
+`boxr run` now looks something like:
+
+```go
+func(cmd *cobra.Command, args []string) {
+    // initialize contain using `NewContainer` as before
+    c := container.NewContainer()
+    // Set the command and arguments
+    c.Command = args[0]
+    c.Args = args[1:]
+    c.Root = root
+    // Set detach mode from flag
+    c.Detach = detach
+   
+    if os.Getenv("_CONTAINER_INIT") != "1" {
+        // Pass the container and the cobra command
+        err := reexec.Reexec(c, cmd)
+        if err != nil {
+            os.Exit(1)
+        }
+        os.Exit(0) // Reexec only re-runs the program and then should exit
+    }
+    // Only accessible after being re-execed and setting the env var
+    // Run the container
+    if err := c.Run(); err != nil {
+        fmt.Printf("Error running container: %v\n", err)
+        os.Exit(1)
+    }
+}
+```
+
+
+Coming back to our mount issues in particular, after we re-exec we can modify the mount paramters on `/` to set it to recursive 
+private mounts, preventing the sharing issues we saw before. And since we are in our own mount namespace we won't affect anything
+else in the system. Then we can proceed to `chroot` into our target directory and changedir into our root filesystem.
+
+Note: I'm leaving out error handling, etc. here for brevity.
+
+`pkg/container/container.go`
+```go
+func (c *Container) Run() error {
+  ...
+  flags := uintptr(syscall.MS_PRIVATE | syscall.MS_REC)
+  syscall.Mount("none", "/", "", flags, "")
+  syscall.Chroot(c.Root)
+  os.Chdir("/")
+  syscall.Mount("proc", "/proc", "proc", 0x0, "")
+  ...
+}
+```
+> Note: Our namespace info logging function, `LogNamespaceInfo`, must be called after mounting the new procfs 
+> so that it has access to the proc info for the correct process. It will be PID 1, which prior to chroot and mounting
+> a new procfs is the host's init process, not the container process.
+
+Let's test:
+
+```zsh
+$ sudo ./boxr run -p
+/ # 
+```
+
+Successfully got into the container, and while its running, checking `mount` on the host shows no signs of the mounts existing.
+
+### Some caveats
+
+In the current implementation, detached mode no longer works. If we attempt it, we see the `cmd.Start()` returns an error
+as its unable to open `/dev/null`, which is the default location `exec.Command` uses for stdin, stdout, and stderr. That makes
+sense, as we haven't created that device in our container. We'll get to that later.

@@ -4,21 +4,35 @@ package reexec
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"syscall"
 
+	"github.com/gruejay/container-runtime/internal/logging"
 	"github.com/gruejay/container-runtime/pkg/container"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
+func init() {
+	// Configure structured JSON logger with timestamp and level
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
+}
+
 // Reexec executes the current binary with the given container configuration.
 // It reconstructs the command with all flags and arguments from the original command.
-func Reexec(c *container.Container, cmd *cobra.Command, args ...string) error {
-	fmt.Println("Hello from pre-exec world!")
+func Reexec(c *container.Container, cmd *cobra.Command) error {
+	slog.Debug("entered pre-exec")
+	logging.LogNamespaceInfo("before reexec")
 
 	// Rebuild the command with all flags and arguments
+	var args []string
+	args = append(args, c.Command)
+	args = append(args, c.Args...)
 	execCmd, err := BuildCommand(cmd, args...)
 	if err != nil {
 		return fmt.Errorf("failed to rebuild command: %w", err)

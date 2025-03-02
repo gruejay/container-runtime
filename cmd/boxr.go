@@ -18,7 +18,6 @@ var rootCmd = &cobra.Command{
 
 var detach bool
 var root string
-var reexec_binary bool
 
 var runCmd = &cobra.Command{
 	Use:   "run [command]",
@@ -39,13 +38,12 @@ Examples:
 		// Set detach mode from flag
 		c.Detach = detach
 		if os.Getenv("_CONTAINER_INIT") != "1" {
-			err := reexec.Reexec(c, cmd, args...)
+			err := reexec.Reexec(c, cmd)
 			if err != nil {
 				os.Exit(1)
 			}
 			os.Exit(0)
 		}
-		fmt.Println("HEYYOOOO")
 		// Run the container
 		if err := c.Run(); err != nil {
 			fmt.Printf("Error running container: %v\n", err)
@@ -79,7 +77,6 @@ var killCmd = &cobra.Command{
 func init() {
 	runCmd.Flags().BoolVarP(&detach, "detach", "d", false, "Run container in background")
 	runCmd.Flags().StringVarP(&root, "root", "r", "rootfs", "Root directory of container")
-	runCmd.Flags().BoolVarP(&reexec_binary, "reexec-binary", "p", false, "Reexec the binary")
 	runCmd.MarkFlagRequired("root")
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(stopCmd)
