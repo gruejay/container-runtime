@@ -224,3 +224,15 @@ Successfully got into the container, and while its running, checking `mount` on 
 In the current implementation, detached mode no longer works. If we attempt it, we see the `cmd.Start()` returns an error
 as its unable to open `/dev/null`, which is the default location `exec.Command` uses for stdin, stdout, and stderr. That makes
 sense, as we haven't created that device in our container. We'll get to that later.
+
+## Conclusion
+
+In this step, we highlighted a few special filesystems we will need to implement to make our container run smoothly. We identified
+that the procfs was needed to help show us that we were in fact running in a new namespaces, since it would allow us to see the 
+proc info for the process. 
+
+In order to solve this, we had to learn about mount namespaces, shared vs private mounts, and most importabtly, how we could
+do namespace configuration *before* we exec'ed the user's desired process. This "reexec" pattern led to a significant rewrite.
+
+Coming up next, we will keep working on filesystem bits, including fixing the missing `/dev/null` and adding the other tmpfs and
+sysfs filesystems we discussed.
