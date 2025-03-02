@@ -168,7 +168,7 @@ Now let's check `ps`:
 ```
 
 Huh... the shell thinks its current PID is 1, but `ps axjf` shows something entirely different. This is due to how `ps`
-works. It reads from the `/proc` virtual filesystem to get information about all of the processes on the host. From the
+works. It reads from the `/proc` filesystem to get information about all of the processes on the host. From the
 _hosts_ perspective, my "container" shell is just another process, spawned by the `boxr` executable. Since the "container"
 shell was spawned without masking the host's `/proc` filesystem, `ps` inside the shell reads the same information as `ps`
 outside, and thus "sees" the PID of the container process from the host's perspective. `$$`, on the other hand, is a builtin
