@@ -66,7 +66,7 @@ We haven't tested our `ps axjf` command since we did the `chroot`, so let's see 
 copy of busybox:
 
 ```zsh
-# sudo ./boxr run -r rootfs -- ps
+$ sudo ./boxr run -r rootfs -- ps
 PID   USER     TIME  COMMAND
 ```
 
@@ -74,14 +74,14 @@ Just an empty table. That makes sense, looking at `rootfs/proc`, its an empty di
 inside the container manually.
 
 ```zsh
-# sudo ./boxr run -r rootfs -- /bin/sh
+$ sudo ./boxr run -r rootfs -- /bin/sh
 ```
 Now inside the container:
 
 ```sh
-/ # mount -t proc proc /proc
-/ # ps axjf
-PID   USER     TIME  COMMAND
+/ $ mount -t proc proc /proc
+/ $ ps axjf
+    PID   USER     TIME  COMMAND
     1 root      0:00 /bin/sh
     3 root      0:00 ps axjf
 ```
@@ -214,7 +214,7 @@ Let's test:
 
 ```zsh
 $ sudo ./boxr run -p
-/ # 
+/ $ 
 ```
 
 Successfully got into the container, and while its running, checking `mount` on the host shows no signs of the mounts existing.
