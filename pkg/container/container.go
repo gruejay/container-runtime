@@ -167,7 +167,7 @@ func (c *Container) Run() error {
 		return fmt.Errorf("chdir to new root failed: %w", err)
 	}
 	if err := syscall.Mount("proc", "/proc", "proc", 0x0, ""); err != nil {
-		return fmt.Errorf("failed to remount root as private: %w", err)
+		return fmt.Errorf("failed to mount procfs: %w", err)
 	}
 	// Log namespace information before container setup
 	logNamespaceInfo("before container setup")
