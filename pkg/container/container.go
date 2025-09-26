@@ -150,9 +150,6 @@ func (c *Container) Run() error {
 		"detached", c.Detach,
 	)
 
-	// Create command
-	cmd := exec.Command(c.Command, c.Args...)
-
 	// Set up filesystem
 	flags := uintptr(syscall.MS_PRIVATE | syscall.MS_REC)
 	if err := syscall.Mount("none", "/", "", flags, ""); err != nil {
@@ -172,40 +169,27 @@ func (c *Container) Run() error {
 	// Log namespace information before container setup
 	logNamespaceInfo("before container setup")
 
-	// Configure I/O
-	if !c.Detach {
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("command failed: %w", err)
-		}
-
-		slog.Info("container process completed",
-			"command", c.Command,
-			"args", c.Args,
-		)
-	} else {
-		// For detached mode, redirect output to files
-		// Set process group to prevent termination when parent exits
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-		}
-
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("failed to start detached process: %w", err)
-		}
-
-		pid := cmd.Process.Pid
-		slog.Info("started detached container process",
-			"command", c.Command,
-			"args", c.Args,
-			"container_pid", pid,
-			"process_group", pid,
-		)
+	// Find the binary path first
+	binary, err := exec.LookPath(c.Command)
+	if err != nil {
+		return fmt.Errorf("failed to find command %s: %w", c.Command, err)
 	}
 
+	// Prepare arguments: first arg should be the command name
+	args := append([]string{c.Command}, c.Args...)
+
+	slog.Info("exec'ing into container process",
+		"command", binary,
+		"args", args,
+	)
+
+	// Replace the current process with the user's command
+	// This syscall will not return if successful
+	if err := syscall.Exec(binary, args, os.Environ()); err != nil {
+		return fmt.Errorf("exec failed: %w", err)
+	}
+
+	// This line will never be reached if exec succeeds
 	return nil
 }
 
