@@ -148,6 +148,7 @@ func (c *Container) Run() error {
 		"command", c.Command,
 		"args", c.Args,
 		"detached", c.Detach,
+		"root", c.Root,
 	)
 
 	// Set up filesystem
@@ -156,8 +157,9 @@ func (c *Container) Run() error {
 		return fmt.Errorf("failed to remount root as private: %w", err)
 	}
 
+	slog.Info("attempting chroot", "path", c.Root)
 	if err := syscall.Chroot(c.Root); err != nil {
-		return fmt.Errorf("chroot failed: %w", err)
+		return fmt.Errorf("chroot to %s failed: %w", c.Root, err)
 	}
 
 	if err := os.Chdir("/"); err != nil {

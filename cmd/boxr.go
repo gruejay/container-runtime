@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 
 	"github.com/gruejay/container-runtime/pkg/container"
 	"github.com/gruejay/container-runtime/pkg/reexec"
-
 	"github.com/spf13/cobra"
 )
 
@@ -36,37 +36,60 @@ Examples:
 		// Set the command and arguments
 		c.Command = args[0]
 		c.Args = args[1:]
-		c.Root = root
+		// Convert root to absolute path
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			fmt.Printf("Error getting absolute path: %v\n", err)
+			os.Exit(1)
+		}
+		c.Root = absRoot
 		// Set detach mode from flag
 		c.Detach = detach
 
 		// For detached mode, fork before reexec
-		if c.Detach && os.Getenv("_CONTAINER_INIT") != "1" {
-			// Re-run ourselves with a special detach flag
-			args := os.Args[1:]
+		if c.Detach && os.Getenv("_CONTAINER_INIT") != "1" && os.Getenv("_CONTAINER_DETACH") != "1" {
+			// First fork - create a new process
+			// Reconstruct args with absolute path
+			args := []string{"run", "--detach", "--root", c.Root, c.Command}
+			args = append(args, c.Args...)
 			cmd := exec.Command(os.Args[0], args...)
 			cmd.Env = append(os.Environ(), "_CONTAINER_DETACH=1")
 			cmd.SysProcAttr = &syscall.SysProcAttr{
-				Setsid: true,
+				Setsid: true, // Create new session
 			}
 
-			// Redirect to /dev/null for detached mode
-			devNull, err := os.Open("/dev/null")
-			if err != nil {
-				fmt.Printf("Error opening /dev/null: %v\n", err)
-				os.Exit(1)
-			}
-			cmd.Stdin = devNull
-			cmd.Stdout = devNull
-			cmd.Stderr = devNull
-
+			// Start the first fork
 			if err := cmd.Start(); err != nil {
 				fmt.Printf("Error starting detached container: %v\n", err)
 				os.Exit(1)
 			}
 
 			fmt.Printf("Started detached container (PID: %d)\n", cmd.Process.Pid)
+			fmt.Printf("Logs will be written to: /var/log/boxr/container-%d.log\n", cmd.Process.Pid)
 			os.Exit(0)
+		}
+
+		// Second fork - this runs in the first forked process
+		if os.Getenv("_CONTAINER_DETACH") == "1" && os.Getenv("_CONTAINER_INIT") != "1" {
+			// Pass log file path to the final process
+			logDir := "/var/log/boxr"
+			os.MkdirAll(logDir, 0755)
+			logFile := fmt.Sprintf("%s/container-%d.log", logDir, os.Getpid())
+
+			// Just do a simple exec without double fork
+			// The process is already detached from the first fork
+			// Change directory to /
+			if err := os.Chdir("/"); err != nil {
+				os.Exit(1)
+			}
+
+			// Clear umask
+			syscall.Umask(0)
+
+			// Set up environment with log file path
+			os.Setenv("_CONTAINER_LOG", logFile)
+
+			// Continue with normal flow - the logging will be set up after reexec
 		}
 
 		// Normal reexec flow
@@ -79,6 +102,26 @@ Examples:
 		}
 
 		// Run the container (this will exec into the user command)
+		// For detached mode, redirect output to log file
+		if logFile := os.Getenv("_CONTAINER_LOG"); logFile != "" {
+			// Open log file for output
+			logFd, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err == nil {
+				// Redirect stdout and stderr to log file
+				os.Stdout = logFd
+				os.Stderr = logFd
+				// Also redirect for child processes
+				syscall.Dup2(int(logFd.Fd()), 1)
+				syscall.Dup2(int(logFd.Fd()), 2)
+			}
+
+			// Redirect stdin to /dev/null
+			devNull, err := os.Open("/dev/null")
+			if err == nil {
+				os.Stdin = devNull
+				syscall.Dup2(int(devNull.Fd()), 0)
+			}
+		}
 		if err := c.Run(); err != nil {
 			fmt.Printf("Error running container: %v\n", err)
 			os.Exit(1)
