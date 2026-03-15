@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/gruejay/container-runtime/internal/server"
 	"github.com/gruejay/container-runtime/pkg/container"
 	"github.com/gruejay/container-runtime/pkg/reexec"
 	"github.com/spf13/cobra"
@@ -18,8 +19,10 @@ var rootCmd = &cobra.Command{
 	Long:  `A simple container runtime implementation written in Go.`,
 }
 
-var detach bool
-var root string
+var (
+	detach bool
+	root   string
+)
 
 var runCmd = &cobra.Command{
 	Use:   "run [command]",
@@ -73,7 +76,7 @@ Examples:
 		if os.Getenv("_CONTAINER_DETACH") == "1" && os.Getenv("_CONTAINER_INIT") != "1" {
 			// Pass log file path to the final process
 			logDir := "/var/log/boxr"
-			os.MkdirAll(logDir, 0755)
+			os.MkdirAll(logDir, 0o755)
 			logFile := fmt.Sprintf("%s/container-%d.log", logDir, os.Getpid())
 
 			// Just do a simple exec without double fork
@@ -105,7 +108,7 @@ Examples:
 		// For detached mode, redirect output to log file
 		if logFile := os.Getenv("_CONTAINER_LOG"); logFile != "" {
 			// Open log file for output
-			logFd, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			logFd, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 			if err == nil {
 				// Redirect stdout and stderr to log file
 				os.Stdout = logFd
@@ -158,10 +161,18 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(stopCmd)
 	rootCmd.AddCommand(killCmd)
+	rootCmd.AddCommand(serveCmd)
+}
+
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Run the gRPC server",
+	Run: func(cmd *cobra.Command, args []string) {
+		server.Serve()
+	},
 }
 
 func main() {
-
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
